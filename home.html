@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - LogoLens</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .upload-area {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1050;
+        }
+        #result-card {
+            margin-top: 30px;
+            display: none; /* Sembunyikan hasil awal */
+        }
+        .result-real {
+            border-left: 5px solid #28a745; /* Hijau */
+        }
+        .result-fake {
+            border-left: 5px solid #dc3545; /* Merah */
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="{{ url_for('index') }}">LogoLens 🔍</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item active">
+                    <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('about') }}">About</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-border text-primary" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+        <h4 class="ml-3">Sedang Memprediksi...</h4>
+    </div>
+
+    <div class="container">
+        <h1 class="text-center mb-4">Verifikasi Logo Otomatis</h1>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="upload-area">
+                    <h3 class="mb-3">Unggah Gambar Logo</h3>
+                    
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="fileInput">Pilih file (.png, .jpg, .jpeg):</label>
+                            <input type="file" class="form-control-file" id="fileInput" name="file" accept=".png, .jpg, .jpeg" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" id="predictButton">Prediksi Logo</button>
+                    </form>
+                    
+                    <hr>
+                    
+                    <h5 class="mt-4">Pratinjau Gambar:</h5>
+                    <div class="text-center border p-2 mb-3">
+                        <img id="imagePreview" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Pratinjau Gambar" style="max-width: 100%; max-height: 200px; display: none;">
+                        <p id="noImageText" class="text-muted mt-2">Belum ada gambar yang dipilih.</p>
+                    </div>
+
+                    <div id="messageAlert" class="alert alert-info mt-3" style="display: none;" role="alert">
+                        </div>
+
+                </div>
+                
+                <div class="card" id="result-card">
+                    <div class="card-header">
+                        <h4 class="mb-0">✨ Hasil Prediksi ✨</h4>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Kelas Prediksi:</strong> <span id="predicted-class" class="font-weight-bold"></span></p>
+                        <p><strong>Tingkat Kepercayaan:</strong> <span id="confidence-score"></span></p>
+                        <p id="result-message" class="font-italic"></p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-4 mt-5">
+        <p>&copy; 2025 LogoLens. All rights reserved.</p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            const $fileInput = $('#fileInput');
+            const $imagePreview = $('#imagePreview');
+            const $noImageText = $('#noImageText');
+            const $uploadForm = $('#uploadForm');
+            const $loadingOverlay = $('#loadingOverlay');
+            const $messageAlert = $('#messageAlert');
+            const $resultCard = $('#result-card');
+            
+            // URL API dari Flask
+            const predictUrl = "{{ predict_url }}";
+
+            // --- 1. Pratinjau Gambar saat dipilih ---
+            $fileInput.change(function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        $imagePreview.attr('src', e.target.result).show();
+                        $noImageText.hide();
+                        $resultCard.hide();
+                        $messageAlert.hide();
+                    }
+                    reader.readAsDataURL(file);
+                } else {
+                    $imagePreview.attr('src', '').hide();
+                    $noImageText.show();
+                }
+            });
+
+            // --- 2. Handler Form Submission (AJAX) ---
+            $uploadForm.submit(function(e) {
+                e.preventDefault(); // Mencegah submit form default (reload halaman)
+                
+                const file = $fileInput[0].files[0];
+                if (!file) {
+                    showAlert("Silakan pilih file gambar untuk diunggah.", "warning");
+                    return;
+                }
+
+                // Buat FormData untuk mengirim file
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Tampilkan loading screen
+                $loadingOverlay.css('display', 'flex');
+                $resultCard.hide().removeClass('result-real result-fake');
+                $messageAlert.hide();
+
+                // Lakukan panggilan AJAX ke API
+                $.ajax({
+                    url: predictUrl,
+                    type: 'POST',
+                    data: formData,
+                    processData: false, // Penting: Jangan memproses data
+                    contentType: false, // Penting: Jangan atur content type (biarkan jQuery/browser yang melakukannya)
+                    success: function(response) {
+                        $loadingOverlay.hide();
+                        handlePredictionResult(response);
+                    },
+                    error: function(xhr, status, error) {
+                        $loadingOverlay.hide();
+                        // Coba parse respons JSON dari error
+                        let errorMessage = "Terjadi kesalahan yang tidak diketahui saat memprediksi.";
+                        try {
+                            const errorResponse = xhr.responseJSON;
+                            if (errorResponse && errorResponse.message) {
+                                errorMessage = errorResponse.message;
+                            }
+                        } catch (e) {
+                             // Jika bukan JSON, gunakan status teks
+                             errorMessage = "API Error: " + xhr.statusText;
+                        }
+                        showAlert(`Gagal: ${errorMessage}`, "danger");
+                    }
+                });
+            });
+
+            // --- 3. Fungsi untuk Menampilkan Pesan ---
+            function showAlert(message, type) {
+                $messageAlert.text(message).removeClass().addClass(`alert alert-${type} mt-3`).show();
+            }
+
+            // --- 4. Fungsi untuk Menangani Hasil Prediksi ---
+            function handlePredictionResult(data) {
+                if (data.status === "success") {
+                    const prediction = data.prediction;
+                    const confidence = (data.confidence * 100).toFixed(2);
+                    let message = `Hasil Model CNN: Logo ini **${prediction}** dengan tingkat kepercayaan ${confidence}%.`;
+                    let resultClass = '';
+                    
+                    if (prediction.toLowerCase() === 'real') {
+                        resultClass = 'result-real';
+                        message += " ✅ Berdasarkan analisis, logo ini diverifikasi sebagai **ASLI**.";
+                        showAlert(`Prediksi Berhasil! Logo: ${prediction}`, "success");
+                    } else if (prediction.toLowerCase() === 'fake') {
+                        resultClass = 'result-fake';
+                        message += " ❌ Berdasarkan analisis, logo ini diverifikasi sebagai **PALSU/TIRUAN**.";
+                        showAlert(`Prediksi Berhasil! Logo: ${prediction}`, "warning");
+                    } else {
+                        // Jika ada kelas lain
+                        resultClass = 'result-info';
+                        showAlert(`Prediksi Berhasil! Logo: ${prediction}`, "info");
+                    }
+
+                    // Tampilkan hasil
+                    $('#predicted-class').text(prediction);
+                    $('#confidence-score').text(confidence + '%');
+                    $('#result-message').html(message);
+                    $resultCard.addClass(resultClass).show();
+
+                } else {
+                    showAlert(`Error dari API: ${data.message}`, "danger");
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

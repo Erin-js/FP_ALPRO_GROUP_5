@@ -4,18 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logolens - Identifikasi Logo</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- Menggunakan url_for untuk CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
+
+    <!-- Overlay Loading (Disembunyikan secara default) -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <h3>Sedang Menganalisis Logo...</h3>
+    </div>
+
     <div class="container">
         <header>
             <div class="logo">
-                <img src="images/LOGO_HORIZ_HITAM.png" alt="Logolens" class="logo-img">
+                <!-- Menggunakan url_for untuk Gambar Logo -->
+                <img src="{{ url_for('static', filename='images/LOGO_HORIZ_HITAM.png') }}" alt="Logolens" class="logo-img">
             </div>
             <nav>
-                <a href="index.html" class="active">Home</a>
-                <a href="about.html">About</a>
+                <!-- Menggunakan url_for untuk link navigasi -->
+                <a href="{{ url_for('index') }}" class="active">Home</a>
+                <a href="{{ url_for('about') }}">About</a>
             </nav>
         </header>
 
@@ -23,20 +33,40 @@
             <h1>Identify logos with machine learning</h1>
             <p class="subtitle">Upload your logo to identify it. There is 30+ logo types available to check.</p>
 
-            <div class="upload-area">
-                <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                <p>Drop your image here or click to select</p>
-                <p>(JPG or PNG)</p>
-                <input type="file" id="logo-upload" accept=".jpg, .png" style="display: none;">
-            </div>
-            
-            <div style="text-align: center;">
-                <a href="result.html" class="btn btn-primary" id="check-btn">Check Now</a>
-            </div>
+            <!-- FORM PEMBUNGKUS (PENTING UNTUK KIRIM DATA KE PYTHON) -->
+            <form id="uploadForm" action="{{ url_for('predict') }}" method="POST" enctype="multipart/form-data">
+                
+                <!-- Area Klik/Upload -->
+                <div class="upload-area" id="drop-area">
+                    
+                    <!-- Konten Default (Ikon Awan) -->
+                    <div id="upload-placeholder">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <p>Drop your image here or click to select</p>
+                        <p>(JPG or PNG)</p>
+                    </div>
+
+                    <!-- Konten Preview (Akan muncul setelah pilih file) -->
+                    <div id="preview-container" style="display: none;">
+                        <img id="imagePreview" src="#" alt="Preview Logo" style="max-height: 150px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                        <p id="fileName" style="margin-top: 10px; font-weight: bold; color: #fff;"></p>
+                        <p style="font-size: 12px; color: #ddd;">Klik untuk ganti gambar</p>
+                    </div>
+
+                    <!-- Input File Tersembunyi (PENTING: name="file") -->
+                    <input type="file" id="logo-upload" name="file" accept=".jpg, .png, .jpeg" style="display: none;" required>
+                </div>
+                
+                <!-- Tombol Submit -->
+                <div style="text-align: center;">
+                    <button type="submit" class="btn btn-primary" id="check-btn">Check Now</button>
+                </div>
+
+            </form>
 
             <div class="how-it-works" style="margin-top: 50px;">
                 <h2>How does LogoLens work?</h2>
-                <p>LogoLens uses a **Convolutional Neural Network (CNN)** model to analyze visual patterns in logos, including shape, texture, and small details that are difficult to distinguish manually. This technology allows users to quickly and accurately check whether an uploaded logo is genuine or fake.</p>
+                <p>LogoLens uses a <strong>Convolutional Neural Network (CNN)</strong> model to analyze visual patterns in logos, including shape, texture, and small details that are difficult to distinguish manually. This technology allows users to quickly and accurately check whether an uploaded logo is genuine or fake.</p>
                 <p style="margin-top: 20px;">
                     Curious about logo detection or ready to build with it? <a href="#">Our classifier is here to empower your journey.</a>
                 </p>
@@ -44,9 +74,49 @@
         </main>
     </div>
 
+    <!-- JAVASCRIPT -->
     <script>
-        document.querySelector('.upload-area').addEventListener('click', function() {
-            document.getElementById('logo-upload').click();
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('logo-upload');
+        const uploadPlaceholder = document.getElementById('upload-placeholder');
+        const previewContainer = document.getElementById('preview-container');
+        const imagePreview = document.getElementById('imagePreview');
+        const fileName = document.getElementById('fileName');
+        const uploadForm = document.getElementById('uploadForm');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // 1. Klik area upload memicu input file
+        dropArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        // 2. Saat file dipilih, tampilkan preview
+        fileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    uploadPlaceholder.style.display = 'none';
+                    previewContainer.style.display = 'block';
+                    fileName.textContent = file.name;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 3. Saat tombol Check Now diklik (Submit Form)
+        uploadForm.addEventListener('submit', function(e) {
+            // Cek apakah file sudah dipilih
+            if (fileInput.files.length === 0) {
+                e.preventDefault(); // Jangan kirim jika kosong
+                alert("Silakan pilih gambar logo terlebih dahulu!");
+            } else {
+                // Tampilkan Loading Overlay
+                loadingOverlay.style.display = 'flex';
+                // Form akan dikirim secara otomatis ke Python, 
+                // dan Python akan me-redirect ke halaman result.html
+            }
         });
     </script>
 </body>

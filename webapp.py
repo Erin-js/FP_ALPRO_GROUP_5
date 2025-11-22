@@ -81,8 +81,7 @@ def get_prediction(image_path):
 
 @app.route('/', methods=['GET'])
 def index():
-    """Halaman utama untuk unggah logo."""
-    session.pop('prediction_result', None) 
+    session.pop('prediction_result', None)
     return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])

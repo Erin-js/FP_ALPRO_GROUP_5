@@ -4,18 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logolens - Hasil Deteksi</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- Perbaikan CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <header>
             <div class="logo">
-                <img src="images/LOGO_HORIZ_HITAM.png" alt="Logolens" class="logo-img">
+                <!-- Perbaikan Gambar Logo -->
+                <img src="{{ url_for('static', filename='images/LOGO_HORIZ_HITAM.png') }}" alt="Logolens" class="logo-img">
             </div>
             <nav>
-                <a href="index.html">Home</a>
-                <a href="about.html">About</a>
+                <a href="{{ url_for('index') }}">Home</a>
+                <a href="{{ url_for('about') }}">About</a>
             </nav>
         </header>
 
@@ -24,26 +26,37 @@
             <p class="subtitle">The image you upload:</p>
 
             <div class="uploaded-image-placeholder">
-                <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBkPSJNMjU2IDVDMTE0LjYgNSAwIDExOS42IDAgMjYwczExNC42IDI1NSA1IDUwMS4zIDI1NSAyNTYgMjU1IDQ5MS40IDAgMjU2IDAgNTExLjcgMjU1IiBmaWxsPSIjRkZGRkZGIi8+PC9zdmc+" alt="Image placeholder">
+                <!-- Menampilkan gambar yang diupload user dari session -->
+                {% if result.image_url %}
+                    <img src="{{ result.image_url }}" alt="Uploaded Image" style="height: 150px; filter: none; opacity: 1; border-radius: 10px;">
+                {% else %}
+                    <!-- Fallback placeholder -->
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBkPSJNMjU2IDVDMTE0LjYgNSAwIDExOS42IDAgMjYwczExNC42IDI1NSA1IDUwMS4zIDI1NSAyNTYgMjU1IDQ5MS40IDAgMjU2IDAgNTExLjcgMjU1IiBmaWxsPSIjRkZGRkZGIi8+PC9zdmc+" alt="Image placeholder">
+                {% endif %}
             </div>
 
             <div class="prediction-details">
                 <div class="detail-item">
                     <strong>Prediction result:</strong>
-                    <span class="result-tag tag-real">REAL</span>
-                    <span class="result-tag tag-fake" style="opacity: 0.5;">FAKE</span>
+                    {% if result.label == 'REAL' %}
+                        <span class="result-tag tag-real">REAL</span>
+                        <span class="result-tag tag-fake" style="opacity: 0.3;">FAKE</span>
+                    {% else %}
+                        <span class="result-tag tag-real" style="opacity: 0.3;">REAL</span>
+                        <span class="result-tag tag-fake">FAKE</span>
+                    {% endif %}
                 </div>
                 <div class="detail-item">
                     <strong>Confidence score:</strong>
-                    <span class="result-tag tag-score">87%</span>
+                    <span class="result-tag tag-score">{{ result.score }}%</span>
                 </div>
                 <div class="detail-item">
                     <strong>Model used:</strong>
-                    <span>CNN</span>
+                    <span>{{ result.model }}</span>
                 </div>
             </div>
             
-            <a href="index.html" class="btn btn-primary" style="background: linear-gradient(90deg, #7D34CC 0%, #343ECC 100%);">Upload another logo</a>
+            <a href="{{ url_for('index') }}" class="btn btn-primary" style="background: linear-gradient(90deg, #7D34CC 0%, #343ECC 100%);">Upload another logo</a>
         </main>
     </div>
 </body>
