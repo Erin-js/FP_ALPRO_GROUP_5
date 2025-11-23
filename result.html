@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logolens - Hasil Deteksi</title>
-    <!-- Perbaikan CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
@@ -12,7 +11,6 @@
     <div class="container">
         <header>
             <div class="logo">
-                <!-- Perbaikan Gambar Logo -->
                 <img src="{{ url_for('static', filename='images/LOGO_HORIZ_HITAM.png') }}" alt="Logolens" class="logo-img">
             </div>
             <nav>
@@ -26,11 +24,9 @@
             <p class="subtitle">The image you upload:</p>
 
             <div class="uploaded-image-placeholder">
-                <!-- Menampilkan gambar yang diupload user dari session -->
                 {% if result.image_url %}
                     <img src="{{ result.image_url }}" alt="Uploaded Image" style="height: 150px; filter: none; opacity: 1; border-radius: 10px;">
                 {% else %}
-                    <!-- Fallback placeholder -->
                     <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBkPSJNMjU2IDVDMTE0LjYgNSAwIDExOS42IDAgMjYwczExNC42IDI1NSA1IDUwMS4zIDI1NSAyNTYgMjU1IDQ5MS40IDAgMjU2IDAgNTExLjcgMjU1IiBmaWxsPSIjRkZGRkZGIi8+PC9zdmc+" alt="Image placeholder">
                 {% endif %}
             </div>

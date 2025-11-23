@@ -147,9 +147,8 @@
                 }
             });
 
-            // --- 2. Handler Form Submission (AJAX) ---
             $uploadForm.submit(function(e) {
-                e.preventDefault(); // Mencegah submit form default (reload halaman)
+                e.preventDefault(); 
                 
                 const file = $fileInput[0].files[0];
                 if (!file) {
@@ -157,29 +156,25 @@
                     return;
                 }
 
-                // Buat FormData untuk mengirim file
                 const formData = new FormData();
                 formData.append('file', file);
                 
-                // Tampilkan loading screen
                 $loadingOverlay.css('display', 'flex');
                 $resultCard.hide().removeClass('result-real result-fake');
                 $messageAlert.hide();
 
-                // Lakukan panggilan AJAX ke API
                 $.ajax({
                     url: predictUrl,
                     type: 'POST',
                     data: formData,
-                    processData: false, // Penting: Jangan memproses data
-                    contentType: false, // Penting: Jangan atur content type (biarkan jQuery/browser yang melakukannya)
+                    processData: false, 
+                    contentType: false, 
                     success: function(response) {
                         $loadingOverlay.hide();
                         handlePredictionResult(response);
                     },
                     error: function(xhr, status, error) {
                         $loadingOverlay.hide();
-                        // Coba parse respons JSON dari error
                         let errorMessage = "Terjadi kesalahan yang tidak diketahui saat memprediksi.";
                         try {
                             const errorResponse = xhr.responseJSON;
@@ -187,7 +182,6 @@
                                 errorMessage = errorResponse.message;
                             }
                         } catch (e) {
-                             // Jika bukan JSON, gunakan status teks
                              errorMessage = "API Error: " + xhr.statusText;
                         }
                         showAlert(`Gagal: ${errorMessage}`, "danger");
@@ -195,12 +189,10 @@
                 });
             });
 
-            // --- 3. Fungsi untuk Menampilkan Pesan ---
             function showAlert(message, type) {
                 $messageAlert.text(message).removeClass().addClass(`alert alert-${type} mt-3`).show();
             }
 
-            // --- 4. Fungsi untuk Menangani Hasil Prediksi ---
             function handlePredictionResult(data) {
                 if (data.status === "success") {
                     const prediction = data.prediction;
@@ -217,12 +209,10 @@
                         message += " ❌ Berdasarkan analisis, logo ini diverifikasi sebagai **PALSU/TIRUAN**.";
                         showAlert(`Prediksi Berhasil! Logo: ${prediction}`, "warning");
                     } else {
-                        // Jika ada kelas lain
                         resultClass = 'result-info';
                         showAlert(`Prediksi Berhasil! Logo: ${prediction}`, "info");
                     }
 
-                    // Tampilkan hasil
                     $('#predicted-class').text(prediction);
                     $('#confidence-score').text(confidence + '%');
                     $('#result-message').html(message);

@@ -1,7 +1,6 @@
 import os
 import random
 import numpy as np
-# Import Flask dan modul-modul lain yang diperlukan
 from flask import Flask, render_template, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -59,20 +58,16 @@ def get_prediction(image_path):
     if processed_image is None or MODEL is None:
         return "ERROR", 0, image_path
 
-    # Simulasi prediksi
     predictions = MODEL.predict(processed_image)
     
-    # Kelas (FAKE = 0, REAL = 1)
     predicted_class_index = np.argmax(predictions[0])
     
-    # Confidence Score
     confidence_score = predictions[0][predicted_class_index] * 100
     confidence_score = int(round(confidence_score))
     
     labels = ["FAKE", "REAL"]
     prediction_label = labels[predicted_class_index]
     
-    # Menyesuaikan skor simulasi
     if confidence_score < 80:
         confidence_score = random.randint(80, 95) 
 
