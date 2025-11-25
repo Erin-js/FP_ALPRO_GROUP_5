@@ -1,77 +1,141 @@
 import os
-import random
 import numpy as np
+import tensorflow as tf
 from flask import Flask, render_template, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
-from PIL import Image
+from PIL import Image, ImageOps
+import cv2
+import easyocr
+import difflib
 
 app = Flask(__name__) 
 app.secret_key = 'super_secret_key_for_logolens_session'
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = 'static/uploads' 
-UPLOAD_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), UPLOAD_FOLDER)
+UPLOAD_PATH = os.path.join(BASE_DIR, UPLOAD_FOLDER)
+
+MODEL_PATH = os.path.join(BASE_DIR, 'model_logo_csv.h5')
+TXT_DB_PATH = os.path.join(BASE_DIR, 'Logos.txt')        
 
 os.makedirs(UPLOAD_PATH, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 MODEL = None
+OCR_READER = None
+DATABASE_BRANDS = []
+
+def init_system():
+    global MODEL, OCR_READER, DATABASE_BRANDS
+
+    print("Memulai Inisialisasi Sistem LogoLens (Mode Cepat)...")
+
+    if os.path.exists(MODEL_PATH):
+        try:
+            MODEL = tf.keras.models.load_model(MODEL_PATH)
+            print("CNN Model (Visual) Loaded.")
+        except Exception as e:
+            print(f"Error Load CNN: {e}")
+    else:
+        print("File model_logo_csv.h5 tidak ditemukan!")
+
+    if os.path.exists(TXT_DB_PATH):
+        with open(TXT_DB_PATH, 'r') as f:
+            DATABASE_BRANDS = [line.strip().lower() for line in f.readlines() if line.strip()]
+        print(f"Database Merek Loaded: {len(DATABASE_BRANDS)} brands.")
+    else:
+        DATABASE_BRANDS = ["adidas", "nike", "gucci", "chanel", "starbucks"]
+
+    print("⏳ Menyiapkan OCR Reader...")
+    try:
+        OCR_READER = easyocr.Reader(['en'], gpu=False)
+        print("OCR Engine Siap!")
+    except Exception as e:
+        print(f"Gagal load OCR: {e}")
 
 def allowed_file(filename):
-    """Mengecek apakah ekstensi file diizinkan."""
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def load_cnn_model():
-    """
-    Fungsi MOCK untuk memuat model CNN (simulasi).
-    """
-    global MODEL
-    class MockModel:
-        def predict(self, processed_image):
-            confidence_real = random.uniform(0.80, 0.99)
-            confidence_fake = 1.0 - confidence_real
-            return np.array([[confidence_fake, confidence_real]])
+def enhance_image_fast(cv2_img):
+    h, w = cv2_img.shape[:2]
+    
+    if w < 300 or h < 300:
+        scale = 2 
+        return cv2.resize(cv2_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    
+    return cv2_img
 
-    MODEL = MockModel()
-    print("Menggunakan Mock Model untuk simulasi prediksi.")
-
-def preprocess_image(image_path):
-    """
-    Pra-pemrosesan gambar: resize, konversi ke NumPy array, dan normalisasi.
-    """
+def read_text_from_image(image_path):
+    if OCR_READER is None: return ""
+    
+    img = cv2.imread(image_path)
+    if img is None: return ""
+    img = enhance_image_fast(img)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
     try:
-        img = Image.open(image_path).convert('RGB')
-        img = img.resize((150, 150))
-        img_array = np.array(img) / 255.0
-        img_array = np.expand_dims(img_array, axis=0) 
-        return img_array
-    except Exception as e:
-        print(f"Error saat memproses gambar: {e}")
-        return None
+        results = OCR_READER.readtext(gray, detail=0)
+        detected_text = " ".join(results).lower().strip()
+        return detected_text
+    except:
+        return ""
 
-def get_prediction(image_path):
-    """Fungsi utama untuk mendapatkan prediksi dari gambar."""
-    processed_image = preprocess_image(image_path)
+def check_brand_match(detected_text):
+    best_match = ""
+    highest_score = 0
     
-    if processed_image is None or MODEL is None:
-        return "ERROR", 0, image_path
+    for brand in DATABASE_BRANDS:
+        score = difflib.SequenceMatcher(None, brand, detected_text).ratio()
+        if score > highest_score:
+            highest_score = score
+            best_match = brand
+            
+    return best_match, highest_score
 
-    predictions = MODEL.predict(processed_image)
+def get_prediction_smart(image_path):
+    img_pil = Image.open(image_path).convert('RGB')
+    img_pil = ImageOps.fit(img_pil, (224, 224), Image.Resampling.LANCZOS)
+    img_array = np.array(img_pil) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
     
-    predicted_class_index = np.argmax(predictions[0])
+    if MODEL:
+        pred = MODEL.predict(img_array)
+        score_vis = pred[0][0] # 0.0 - 1.0
+    else:
+        score_vis = 0.5 
+    detected_text = read_text_from_image(image_path)
+    matched_brand, score_text = check_brand_match(detected_text)
     
-    confidence_score = predictions[0][predicted_class_index] * 100
-    confidence_score = int(round(confidence_score))
-    
-    labels = ["FAKE", "REAL"]
-    prediction_label = labels[predicted_class_index]
-    
-    if confidence_score < 80:
-        confidence_score = random.randint(80, 95) 
+    print(f"\n ANALISIS: Visual={score_vis:.2f} | Teks='{detected_text}' | Match='{matched_brand}' ({score_text:.2f})")
+    final_label = "FAKE"
+    final_score = 0.0
 
-    return prediction_label, confidence_score, image_path
+    if score_vis > 0.6:
+        if score_text >= 0.8:
+            final_label = "REAL / GENUINE"
+            final_score = (score_vis * 0.4) + (score_text * 0.6) 
+
+        elif score_text > 0.6:
+            final_label = "REAL / GENUINE"
+            final_score = score_vis 
+
+        else:
+            final_label = "FAKE / PALSU"
+            final_score = 1.0 - (score_vis * 0.5)
+
+    else:
+        if score_text > 0.8:
+            final_label = "REAL / GENUINE"
+            final_score = score_text * 0.7 
+        
+        else:
+            final_label = "FAKE / PALSU"
+            final_score = 1.0 - (score_vis * score_text)
+
+    confidence_percent = int(min(max(final_score * 100, 0), 100))
+    
+    return final_label, confidence_percent
 
 
 @app.route('/', methods=['GET'])
@@ -81,7 +145,6 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Menangani unggahan file dan menjalankan prediksi."""
     if 'file' not in request.files or request.files['file'].filename == '':
         return render_template('index.html', error="Tidak ada file terpilih.")
 
@@ -89,43 +152,35 @@ def predict():
 
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        unique_filename = f"{random.getrandbits(64)}_{filename}"
+        import random
+        unique_filename = f"{random.randint(10000, 99999)}_{filename}"
         
         absolute_save_path = os.path.join(UPLOAD_PATH, unique_filename)
         file.save(absolute_save_path)
-        
-        prediction_label, confidence_score, _ = get_prediction(absolute_save_path)
+
+        label, score = get_prediction_smart(absolute_save_path)
 
         session['prediction_result'] = {
-            'label': prediction_label,
-            'score': confidence_score,
-
+            'label': label,
+            'score': score,
             'image_url': url_for('static', filename=f'uploads/{unique_filename}'),
-            'model': 'CNN'
+            'model': 'Hybrid CNN + OCR' 
         }
         
         return redirect(url_for('result'))
     else:
-        return render_template('index.html', error="Format file tidak diizinkan. Gunakan PNG, JPG, atau JPEG.")
-
+        return render_template('index.html', error="Format file salah.")
 
 @app.route('/result', methods=['GET'])
 def result():
-    """Menampilkan hasil prediksi yang disimpan di session."""
-    if 'prediction_result' not in session:
-        return redirect(url_for('index'))
-    
-    result_data = session['prediction_result']
-    return render_template('result.html', result=result_data)
-
+    if 'prediction_result' not in session: return redirect(url_for('index'))
+    return render_template('result.html', result=session['prediction_result'])
 
 @app.route('/about', methods=['GET'])
 def about():
-    """Halaman informasi aplikasi."""
     return render_template('about.html')
 
-
 if __name__ == '__main__': 
-    load_cnn_model()
-    print(">>> Flask server dijalankan...")
+    init_system()
+    print(">>> Flask server Logolens berjalan di port 8080...")
     app.run(debug=True, port=8080)
