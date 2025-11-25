@@ -47,7 +47,7 @@ def init_system():
     else:
         DATABASE_BRANDS = ["adidas", "nike", "gucci", "chanel", "starbucks"]
 
-    print("⏳ Menyiapkan OCR Reader...")
+    print("Menyiapkan OCR Reader...")
     try:
         OCR_READER = easyocr.Reader(['en'], gpu=False)
         print("OCR Engine Siap!")
@@ -183,4 +183,5 @@ def about():
 if __name__ == '__main__': 
     init_system()
     print(">>> Flask server Logolens berjalan di port 8080...")
+
     app.run(debug=True, port=8080)
