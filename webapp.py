@@ -182,6 +182,25 @@ def about():
 
 if __name__ == '__main__': 
     init_system()
-    print(">>> Flask server Logolens berjalan di port 8080...")
+    
+    print("\n" + "="*50)
+    print("MODE JARINGAN LOKAL (LAN/WIFI)")
+    print("="*50)
 
-    app.run(debug=True, port=8080)
+    try:
+        port_input = input("Masukkan Port yang diinginkan (contoh: 5000, 8080, 8000): ")
+        port_number = int(port_input)
+    except ValueError:
+        print("Input salah! Menggunakan port default 5000.")
+        port_number = 5000
+
+    import socket
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+
+    print(f"\n Server Berjalan!")
+    print(f"Akses di Laptop ini : http://127.0.0.1:{port_number}")
+    print(f"Akses di HP/Teman   : http://{local_ip}:{port_number}")
+    print("="*50 + "\n")
+
+    app.run(host='0.0.0.0', port=port_number, debug=True)
